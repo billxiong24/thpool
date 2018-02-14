@@ -31,9 +31,6 @@ struct TPOOL {
     bool shutdown;
 };
 
-static void *thread_run(void *arg);
-static void thread_init(TPOOL *pool, int index);
-
 static void *thread_run(void *arg) {
     struct job_thread *jobthread = arg;
     TPOOL *pool = jobthread->tpool;
@@ -41,6 +38,27 @@ static void *thread_run(void *arg) {
     pthread_mutex_lock(&(pool->tpool_lock));
     pool->threads_started++;
     pthread_mutex_unlock(&(pool->tpool_lock));
+    
+    while(1) {
+        pthread_mutex_lock(&(pool->tpool_lock));
+        while(queue_empty(pool->job_queue)) {
+            //wait until a job becomes available
+            pthread_cond_wait(&(pool->tpool_signal), &(pool->tpool_lock));
+        }
+
+        struct tpool_job *job = queue_pop(pool->job_queue);
+
+        pthread_mutex_unlock(&(pool->tpool_lock));
+
+        //execute the job
+        void *res = job->func(job->arg);
+        //for now, no error
+        job->cb(0, res);
+    }
+
+    //at this point, the thread still has the lock
+    pthread_mutex_unlock(&(pool->tpool_lock));
+    pool->threads_started--;
 
     return NULL;
 }
@@ -55,7 +73,7 @@ static void thread_init(TPOOL *pool, int i) {
     pthread_detach(jobthread.thread);
 }
 
-TPOOL *tpool_init(size_t num_threads){
+TPOOL *tpool_init(size_t num_threads) {
     size_t tpool_size = sizeof(TPOOL);
     TPOOL *pool = malloc(tpool_size);
     //zero out allocated memory, just in case 
@@ -83,7 +101,24 @@ TPOOL *tpool_init(size_t num_threads){
 }
 
 void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb){
+    pthread_mutex_t pool_lock = pool->tpool_lock;
 
+
+    /*pthread_mutex_lock(&(pool_lock));*/
+    
+    //create new job
+    struct tpool_job *job = malloc(sizeof(*job));
+    job->func = func;
+    job->arg = arg;
+    job->cb = cb;
+
+    //add to queue, whose operations are synchronized, no need to provide lock
+    queue_push(pool->job_queue, job);
+
+    //signal to wake up a sleeping thread
+    pthread_cond_signal(&(pool->tpool_signal));
+
+    /*pthread_mutex_unlock(&(pool_lock));*/
 }
 
 void tpool_free(TPOOL *pool){

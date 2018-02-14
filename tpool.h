@@ -3,7 +3,7 @@
 #include <stddef.h>
 
 typedef struct TPOOL TPOOL;
-typedef void (*tpool_func)(void *arg);
+typedef void *(*tpool_func)(void *arg);
 typedef void (*call_back)(int err, void *res);
 
 TPOOL *tpool_init(size_t num_threads);
