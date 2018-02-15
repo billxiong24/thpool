@@ -7,6 +7,7 @@
 #include "tpool.h"
 
 #define MAX_THREADS 50
+static int shutdown = 0;
 
 struct job_thread {
     pthread_t thread;
@@ -41,10 +42,18 @@ static void *thread_run(void *arg) {
     
     while(1) {
         pthread_mutex_lock(&(pool->tpool_lock));
+        int shut = 0;
         while(queue_empty(pool->job_queue)) {
             //wait until a job becomes available
             pthread_cond_wait(&(pool->tpool_signal), &(pool->tpool_lock));
+            if(shutdown == 1) {
+                shut = 1;
+                break;
+            }
         }
+        if(shut)
+            break;
+        
 
         struct tpool_job *job = queue_pop(pool->job_queue);
 
@@ -58,9 +67,10 @@ static void *thread_run(void *arg) {
 
     //at this point, the thread still has the lock
     pthread_mutex_unlock(&(pool->tpool_lock));
-    pool->threads_started--;
+    /*pool->threads_started--;*/
+    pthread_exit(NULL);
 
-    return NULL;
+    /*return NULL;*/
 }
 
 static void thread_init(TPOOL *pool, int i) {
@@ -69,6 +79,7 @@ static void thread_init(TPOOL *pool, int i) {
     jobthread.id = i;
 
     pthread_create(&jobthread.thread, NULL, thread_run, &jobthread);
+    /*void *ret = NULL;*/
     //main thread does not wait for the compleition of this thread
     pthread_detach(jobthread.thread);
 }
@@ -85,7 +96,7 @@ TPOOL *tpool_init(size_t num_threads) {
     pthread_cond_init(&(pool->tpool_signal), NULL);
 
     pool->job_queue = queue_init();
-    size_t size_els = sizeof(pthread_t) * num_threads;
+    size_t size_els = sizeof(struct job_thread) * num_threads;
     pool->threads = malloc(size_els);
 
     memset(pool->threads, 0, size_els);
@@ -100,12 +111,9 @@ TPOOL *tpool_init(size_t num_threads) {
     return pool;
 }
 
-void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb){
+void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb) {
     pthread_mutex_t pool_lock = pool->tpool_lock;
 
-
-    /*pthread_mutex_lock(&(pool_lock));*/
-    
     //create new job
     struct tpool_job *job = malloc(sizeof(*job));
     job->func = func;
@@ -116,11 +124,10 @@ void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb){
     queue_push(pool->job_queue, job);
 
     //signal to wake up a sleeping thread
-    pthread_cond_signal(&(pool->tpool_signal));
-
-    /*pthread_mutex_unlock(&(pool_lock));*/
+    pthread_cond_broadcast(&(pool->tpool_signal));
 }
 
 void tpool_free(TPOOL *pool){
+    pthread_exit(NULL);
 
 }
