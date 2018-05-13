@@ -6,8 +6,6 @@
 #include "queue.h"
 #include "tpool.h"
 
-/*#define MAX_THREADS 50*/
-
 struct job_thread {
     pthread_t thread;
     int id;
@@ -26,7 +24,6 @@ struct TPOOL {
     pthread_mutex_t tpool_lock;
     pthread_cond_t tpool_signal;
     QUEUE *job_queue;
-    /*struct job_thread *threads;*/
 
     QUEUE *job_threads;
 
@@ -61,11 +58,14 @@ static void *thread_run(void *arg) {
         
         //at this point, broadcasted and queue not empty 
         struct tpool_job *job = queue_pop(pool->job_queue);
+        jobthread->is_executing = true;
 
         pthread_mutex_unlock(&(pool->tpool_lock));
 
         //execute the job
         void *res = job->func(job->arg);
+        //job is finished
+        jobthread->is_executing = false;
         //for now, no error
         job->cb(0, res);
     }
@@ -119,6 +119,12 @@ TPOOL *tpool_init(size_t num_threads) {
     return pool;
 }
 
+static bool check_available_threads(QUEUE *queue, void *arg) {
+    struct job_thread *jt = (struct job_thread *) arg;
+    /*printf("jt->is_executing = %d\n", jt->is_executing);*/
+    return jt->is_executing;
+}
+
 void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb) {
     pthread_mutex_t pool_lock = pool->tpool_lock;
 
@@ -132,9 +138,30 @@ void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb) {
     queue_push(pool->job_queue, job);
 
     //TODO check if there is a thread that can handle this job. If not, add it dynamically.
+    int job_diff = queue_size(pool->job_queue) - queue_size(pool->job_threads);
 
+    //not enough threads
+    if(job_diff > 0) {
+        int old_thrd_started = pool->threads_started;
+        struct job_thread *thread = queue_peek_tail(pool->job_threads);
+        int last_id = thread->id;
+        
+        for(int i = 0; i < job_diff; i++) {
+            struct job_thread *jt = malloc(sizeof(*jt));
+            queue_push(pool->job_threads, jt);
+            //continue ids from last id, increment
+            thread_init(pool, i + last_id);
+        }
+
+        //wait for all the new threads to be initialized
+        while(pool->threads_started != old_thrd_started + job_diff) {
+            continue;
+        }
+    }
     //signal to wake up a sleeping thread
     pthread_cond_broadcast(&(pool->tpool_signal));
+
+    /*bool threads_available = queue_iter_cond(pool->job_threads, check_available_threads);*/
 }
 
 void tpool_free(TPOOL *pool){

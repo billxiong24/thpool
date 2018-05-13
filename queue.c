@@ -94,6 +94,35 @@ bool queue_empty(QUEUE *queue){
     return queue->size == 0;
 }
 
+void queue_iter(QUEUE *queue, queue_func func) {
+    pthread_mutex_lock(&(queue->queue_lock));
+
+    struct queue_node *trav = queue->head;
+    while(trav) {
+        func(queue, trav->val);
+        trav = trav->next;
+    }
+
+    pthread_mutex_unlock(&(queue->queue_lock));
+}
+
+bool queue_iter_cond(QUEUE *queue, queue_func_bool func) {
+    pthread_mutex_lock(&(queue->queue_lock));
+    struct queue_node *trav = queue->head;
+    bool check = false;
+    while(trav) {
+        if(!func(queue, trav->val)) {
+            check = true;
+            break;
+        }
+        
+        trav = trav->next;
+    }
+    pthread_mutex_unlock(&(queue->queue_lock));
+
+    return check;
+}
+
 void queue_free(QUEUE *queue) {
     pthread_mutex_lock(&(queue->queue_lock));
 

@@ -5,7 +5,7 @@
 int finished = 0;
 void *func(void *arg) {
     puts("executing job");
-    sleep(1);
+    sleep(10);
     return NULL;
 }
 void cb(int err, void *res) {
@@ -25,7 +25,7 @@ void *run(void *arg) {
 }
 
 int main(void) {
-    TPOOL *tpool = tpool_init(5);
+    TPOOL *tpool = tpool_init(2);
     pthread_t thread;
 
     pthread_create(&thread, NULL, run, tpool);
