@@ -29,5 +29,4 @@ int main(void) {
     pthread_create(&thread, NULL, run, tpool);
     tpool_free(tpool);
     pthread_join(thread, NULL);
-    puts("heliro");
 }
