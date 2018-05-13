@@ -46,6 +46,7 @@ static void *thread_run(void *arg) {
             //wait until a job becomes available
             pthread_cond_wait(&(pool->tpool_signal), &(pool->tpool_lock));
 
+            printf("pool->shutdown = %d\n", pool->shutdown);
             if(pool->shutdown) {
                 shut = true;
                 break;
@@ -73,6 +74,7 @@ static void *thread_run(void *arg) {
 
     //at this point, the thread still has the lock
     pthread_mutex_unlock(&(pool->tpool_lock));
+    puts("exiting");
     pool->threads_started--;
     pthread_exit(NULL);
     return NULL;
@@ -171,8 +173,9 @@ void tpool_free(TPOOL *pool){
     queue_free(pool->job_threads);
     queue_free(pool->job_queue);
     pthread_mutex_destroy(&(pool->tpool_lock));
-    /*pthread_cond_broadcast(&(pool->tpool_signal));*/
-    /*pthread_cond_destroy(&(pool->tpool_signal));*/
+    pool->shutdown = true;
+    pthread_cond_broadcast(&(pool->tpool_signal));
+    pthread_cond_destroy(&(pool->tpool_signal));
     free(pool);
 
     /*pthread_exit(NULL);*/
