@@ -4,29 +4,24 @@
 #include <pthread.h>
 int finished = 0;
 void *func(void *arg) {
-    puts("hello world");
+    puts("executing job");
+    sleep(1);
     return NULL;
-
 }
 void cb(int err, void *res) {
     puts("calling back");
     finished++;
 }
 
-void *func2(void *arg) {
-    int *d = arg;
-    printf("*d = %d\n", *d);
-    finished++;
-}
-
 void *run(void *arg) {
     TPOOL *tpool = arg;
-    tpool_add_job(tpool, func, NULL, cb);
-    tpool_add_job(tpool, func, NULL, cb);
-    int a = 3;
-    int *d = &a;
-    tpool_add_job(tpool, func2, (void *) d, cb);
-    tpool_free(tpool);
+    int count = 0;
+    while(1) {
+        tpool_add_job(tpool, func, NULL, cb);
+        tpool_add_job(tpool, func, NULL, cb);
+        tpool_add_job(tpool, func, NULL, cb);
+        sleep(3);
+    }
 }
 
 int main(void) {
@@ -35,4 +30,5 @@ int main(void) {
 
     pthread_create(&thread, NULL, run, tpool);
     pthread_join(thread, NULL);
+    puts("heliro");
 }

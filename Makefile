@@ -9,3 +9,6 @@ LINKS=-lpthread
 
 $(EXEC): main.c queue.c tpool.c
 	$(CC) -o $@ $^ $(LINKS)
+
+clean:
+	rm main

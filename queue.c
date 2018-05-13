@@ -70,6 +70,22 @@ void *queue_pop(QUEUE *queue){
     return ret;
 }
 
+void *queue_peek(QUEUE *queue) {
+    if(!queue->head) {
+        return NULL;
+    }
+
+    return queue->head->val;
+}
+
+void *queue_peek_tail(QUEUE *queue) {
+    if(!queue->tail) {
+        return NULL;
+    }
+
+    return queue->tail->val;
+}
+
 size_t queue_size(QUEUE *queue){
     return queue->size;
 }
