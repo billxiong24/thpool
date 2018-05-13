@@ -68,6 +68,7 @@ static void *thread_run(void *arg) {
         jobthread->is_executing = false;
         //for now, no error
         job->cb(0, res);
+        free(job);
     }
 
     //at this point, the thread still has the lock
@@ -107,6 +108,7 @@ TPOOL *tpool_init(size_t num_threads) {
 
     for (int i = 0; i < num_threads; i++) {
         struct job_thread *jt = malloc(sizeof(*jt));
+        memset(jt, 0, sizeof(jt));
         queue_push(pool->job_threads, jt);
         thread_init(pool, i);
     }
@@ -148,6 +150,7 @@ void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb) {
         
         for(int i = 0; i < job_diff; i++) {
             struct job_thread *jt = malloc(sizeof(*jt));
+            memset(jt, 0, sizeof(jt));
             queue_push(pool->job_threads, jt);
             //continue ids from last id, increment
             thread_init(pool, i + last_id);
@@ -165,5 +168,12 @@ void tpool_add_job(TPOOL *pool, tpool_func func, void *arg, call_back cb) {
 }
 
 void tpool_free(TPOOL *pool){
-    pthread_exit(NULL);
+    queue_free(pool->job_threads);
+    queue_free(pool->job_queue);
+    pthread_mutex_destroy(&(pool->tpool_lock));
+    /*pthread_cond_broadcast(&(pool->tpool_signal));*/
+    /*pthread_cond_destroy(&(pool->tpool_signal));*/
+    free(pool);
+
+    /*pthread_exit(NULL);*/
 }

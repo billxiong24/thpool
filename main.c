@@ -5,7 +5,7 @@
 int finished = 0;
 void *func(void *arg) {
     puts("executing job");
-    sleep(10);
+    sleep(1);
     return NULL;
 }
 void cb(int err, void *res) {
@@ -16,11 +16,9 @@ void cb(int err, void *res) {
 void *run(void *arg) {
     TPOOL *tpool = arg;
     int count = 0;
-    while(1) {
+    while(count++ < 1) {
         tpool_add_job(tpool, func, NULL, cb);
-        tpool_add_job(tpool, func, NULL, cb);
-        tpool_add_job(tpool, func, NULL, cb);
-        sleep(3);
+        sleep(2);
     }
 }
 
@@ -31,4 +29,5 @@ int main(void) {
     pthread_create(&thread, NULL, run, tpool);
     pthread_join(thread, NULL);
     puts("heliro");
+    tpool_free(tpool);
 }
